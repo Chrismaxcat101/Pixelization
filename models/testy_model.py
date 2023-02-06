@@ -102,20 +102,26 @@ class TestyModel(BaseModel):
             self.rec_temp_B = self.netG_A(self.fake_A, self.B_gray)# cellcode#
             self.rec_B = self.alias_net(self.rec_temp_B)   # G_A(G_B(B))
 
-        
-  def RGB2GRAY(self, RGB_image):
-        gray_image = None
-        for i in range(RGB_image.shape[0]):
-            R = RGB_image[i][0]
-            G = RGB_image[i][1]
-            B = RGB_image[i][2]
-            gray = 0.299 * R + 0.587 * G + 0.114 * B  # [256,256]
-            gray = torch.unsqueeze(gray, 0)  # [1,256,256]
-            gray = torch.cat([gray, gray, gray], 0)  # [3,256,256]
-            if i == 0:
-                gray_image = torch.unsqueeze(gray, 0)
-            else:
-                gray = torch.unsqueeze(gray, 0)
-                gray_image = torch.cat([gray_image, gray], 0)
-        #print(gray_image.shape)
-        return gray_image
+            
+    def RGB2GRAY(self, RGB_image):
+            gray_image = None
+            for i in range(RGB_image.shape[0]):
+                R = RGB_image[i][0]
+                G = RGB_image[i][1]
+                B = RGB_image[i][2]
+                gray = 0.299 * R + 0.587 * G + 0.114 * B  # [256,256]
+                gray = torch.unsqueeze(gray, 0)  # [1,256,256]
+                gray = torch.cat([gray, gray, gray], 0)  # [3,256,256]
+                if i == 0:
+                    gray_image = torch.unsqueeze(gray, 0)
+                else:
+                    gray = torch.unsqueeze(gray, 0)
+                    gray_image = torch.cat([gray_image, gray], 0)
+            #print(gray_image.shape)
+            return gray_image
+
+
+    def optimize_parameters(self):
+        """No optimization for test model."""
+        pass
+
