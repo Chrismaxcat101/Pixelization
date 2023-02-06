@@ -73,36 +73,23 @@ if __name__ == '__main__':
     opt.display_id = -1  # no visdom display; the test code saves the results to a HTML file.
     
     Rescale = True
-    if opt.mode == 'c2p':
-        cell_size_lst=[int(i) for i in opt.cell_size.split(',')]
-        print(cell_size_lst)
-        for Cell_Size in cell_size_lst:
-            num = 1
-            for file in os.listdir(image_dir):
-                if file.endswith('png') or file.endswith('jpg'):
-                    image_path = os.path.join(image_dir, file)
-                    save_path = os.path.join(testA_dir, '{}_{}.png'.format(Cell_Size, num))
-                    pixelart_path = os.path.join(pixelart_dir, '{}_1.png'.format(Cell_Size))
-                    pixelart_save_path = os.path.join(testB_dir, '{}_{}.png'.format(Cell_Size, num))
-                    image = Image.open(image_path).convert('RGB')
-                    image = rescale(image, Rescale)
-                    image.save(save_path)
-                    shutil.copy(pixelart_path, pixelart_save_path)
-                    num += 1
-                else:
-                    print('The format of input image should be jpg or png.')
-    elif opt.mode == 'p2c':
-        num = 1
-        for file in os.listdir(image_dir):
-            if file.endswith('png') or file.endswith('jpg'):
-                image_path = os.path.join(image_dir, file)
-                save_path = os.path.join(testB_dir, '{}.png'.format(num))
-                image = Image.open(image_path).convert('RGB')
-                image = rescale(image, Rescale)
+    cell_size_lst=[int(i) for i in opt.cell_size.split(',')]
+    print(cell_size_lst)
+    num = 1
+    for file in os.listdir(image_dir):
+        if file.endswith('png') or file.endswith('jpg'):
+            image_path = os.path.join(image_dir, file)
+            image = Image.open(image_path).convert('RGB')
+            image = rescale(image, Rescale)
+            for Cell_Size in cell_size_lst:
+                save_path = os.path.join(testA_dir, '{}_{}.png'.format(Cell_Size,num))
+                pixelart_path = os.path.join(pixelart_dir, '{}_1.png'.format(Cell_Size))
+                pixelart_save_path = os.path.join(testB_dir, '{}_{}.png'.format(Cell_Size,num))
                 image.save(save_path)
-                num += 1
-            else:
-                print('The format of input image should be jpg or png.')
+                shutil.copy(pixelart_path, pixelart_save_path)
+            num += 1
+        else:
+            print('The format of input image should be jpg or png.')
     
     dataset = create_dataset(opt)  # create a dataset given opt.dataset_mode and other options
     model = create_model(opt)  # create a model given opt.model and other options
@@ -127,7 +114,9 @@ if __name__ == '__main__':
         img_path = model.get_image_paths()  # get image paths
         if i % 5 == 0:  # save images to an HTML file
             print('processing (%04d)-th image... %s' % (i, img_path))
+
         save_images(webpage, visuals, img_path, aspect_ratio=opt.aspect_ratio, width=opt.display_winsize)
+    
     webpage.save()  # save the HTML
     # plot_xy(model.TsneData, model.TsneLabel, "T-sne visualization for cell size code", opt.epoch)
     
