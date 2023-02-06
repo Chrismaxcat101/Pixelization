@@ -7,7 +7,7 @@ import os
 
 import torch.nn.functional as F
 
-class PixelizationModel(BaseModel):
+class TestyModel(BaseModel):
     @staticmethod
     def modify_commandline_options(parser, is_train=True):
         """Add new dataset-specific options, and rewrite default values for existing options.
