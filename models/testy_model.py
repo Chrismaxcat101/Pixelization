@@ -39,13 +39,14 @@ class TestyModel(BaseModel):
         visual_names_A = ['real_A', 'temp_B', 'fake_B', 'rec_A']
         visual_names_B = ['real_B', 'fake_A', 'rec_temp_B', 'rec_B']
         
-        self.mode=opt.mode
-              
-        if self.mode=='p2c':
-            self.visual_names = visual_names_B
-        elif self.mode=='c2p':
+
+        AtoB = self.opt.direction == 'AtoB'
+        if AtoB: 
             self.visual_names = visual_names_A
-            
+        else:
+            self.visual_names = visual_names_B
+
+
         # specify the models you want to save to the disk. The training/test scripts will call <BaseModel.save_networks> and <BaseModel.load_networks>.
         self.model_names = ['G_A', 'G_B']
 
@@ -88,19 +89,16 @@ class TestyModel(BaseModel):
 
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
         
-        if self.mode=='c2p':
-            self.temp_B = self.netG_A(self.real_A, self.B_gray)
-            # visualizing the cell size code
-            #cellcode = F.normalize(cellcode, p=2,dim=1)
-            #cellcode = torch.squeeze(cellcode,0)
-            #print(cellcode.shape)
-            self.fake_B = self.alias_net(self.temp_B)  # G_A(A)
-            self.rec_A = self.netG_B(self.fake_B)   # G_B(G_A(A))
-        
-        if self.mode=='p2c':
-            self.fake_A = self.netG_B(self.real_B)  # G_B(B)
-            self.rec_temp_B = self.netG_A(self.fake_A, self.B_gray)# cellcode#
-            self.rec_B = self.alias_net(self.rec_temp_B)   # G_A(G_B(B))
+        self.temp_B = self.netG_A(self.real_A, self.B_gray)
+        # visualizing the cell size code
+        #cellcode = F.normalize(cellcode, p=2,dim=1)
+        #cellcode = torch.squeeze(cellcode,0)
+        #print(cellcode.shape)
+        self.fake_B = self.alias_net(self.temp_B)  # G_A(A)
+        self.rec_A = self.netG_B(self.fake_B)   # G_B(G_A(A))
+        self.fake_A = self.netG_B(self.real_B)  # G_B(B)
+        self.rec_temp_B = self.netG_A(self.fake_A, self.B_gray)# cellcode#
+        self.rec_B = self.alias_net(self.rec_temp_B)   # G_A(G_B(B))
 
             
     def RGB2GRAY(self, RGB_image):
