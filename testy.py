@@ -77,24 +77,36 @@ if __name__ == '__main__':
     opt.no_flip = True    # no flip; comment this line if results on flipped images are needed.
     opt.display_id = -1   # no visdom display; the test code saves the results to a HTML file.
     
-    
     Rescale = True
-    for cell_size in opt.cell_size:
-        Cell_Size = cell_size
-        num = 1
-        for file in os.listdir(image_dir):
-            if file.endswith('png') or file.endswith('jpg'):
-                image_path = os.path.join(image_dir, file)
-                save_path = os.path.join(testA_dir, '{}_{}.png'.format(Cell_Size, num))
-                pixelart_path = os.path.join(pixelart_dir, '{}_1.png'.format(Cell_Size))
-                pixelart_save_path = os.path.join(testB_dir, '{}_{}.png'.format(Cell_Size, num))
-                image = Image.open(image_path).convert('RGB')
-                image = rescale(image, Rescale)
-                image.save(save_path)
-                shutil.copy(pixelart_path, pixelart_save_path)
-                num += 1
-            else:
-                print('The format of input image should be jpg or png.')
+    if opt.mode=='c2p':
+        for cell_size in opt.cell_size:
+            Cell_Size = cell_size
+            num = 1
+            for file in os.listdir(image_dir):
+                if file.endswith('png') or file.endswith('jpg'):
+                    image_path = os.path.join(image_dir, file)
+                    save_path = os.path.join(testA_dir, '{}_{}.png'.format(Cell_Size, num))
+                    pixelart_path = os.path.join(pixelart_dir, '{}_1.png'.format(Cell_Size))
+                    pixelart_save_path = os.path.join(testB_dir, '{}_{}.png'.format(Cell_Size, num))
+                    image = Image.open(image_path).convert('RGB')
+                    image = rescale(image, Rescale)
+                    image.save(save_path)
+                    shutil.copy(pixelart_path, pixelart_save_path)
+                    num += 1
+                else:
+                    print('The format of input image should be jpg or png.')
+     elif opt.mode=='p2c':
+            num = 1
+            for file in os.listdir(image_dir):
+                if file.endswith('png') or file.endswith('jpg'):
+                    image_path = os.path.join(image_dir, file)
+                    save_path = os.path.join(testB_dir, '{}.png'.format(num))
+                    image = Image.open(image_path).convert('RGB')
+                    image = rescale(image, Rescale)
+                    image.save(save_path)
+                    num += 1
+                else:
+                    print('The format of input image should be jpg or png.')
             
     
     dataset = create_dataset(opt)  # create a dataset given opt.dataset_mode and other options
