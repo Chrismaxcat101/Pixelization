@@ -24,6 +24,6 @@ class TestOptions(BaseOptions):
         
         #edit in 20230206
         parser.add_argument('--mode',type=str, default='c2p',help='test in which direction. [c2p | p2c]')
-        parser.add_argument('--cell_size',type=list,default=[4], help='run tests in different cell sizes')
+        parser.add_argument('--cell_size',type=str,default=4, help='run tests in different cell sizes')
         
         return parser
