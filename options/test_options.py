@@ -20,4 +20,9 @@ class TestOptions(BaseOptions):
         # To avoid cropping, the load_size should be the same as crop_size
         parser.set_defaults(load_size=parser.get_default('crop_size'))
         self.isTrain = False
+        
+        
+        #edit in 20230206
+        parser.add_argument('--mode',type=str, default='c2p',help='test in which direction. [c2p | p2c | full]')
+        
         return parser
