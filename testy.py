@@ -16,17 +16,6 @@ import seaborn as sns
 from PIL import Image
 import shutil
 
-pixelart_dir = './examples'
-image_dir = './datasets/TEST_DATA/Input'
-testA_dir = './datasets/TEST_DATA/testA'
-testB_dir = './datasets/TEST_DATA/testB'
-if not os.path.exists(image_dir):
-    os.makedirs(image_dir)
-if not os.path.exists(testA_dir):
-    os.makedirs(testA_dir)
-if not os.path.exists(testB_dir):
-    os.makedirs(testB_dir)
-
 
 def rescale(image, Rescale=True):
     if not Rescale:
@@ -71,7 +60,18 @@ if __name__ == '__main__':
     opt.serial_batches = True  # disable data shuffling; comment this line if results on randomly chosen images are needed.
     opt.no_flip = True  # no flip; comment this line if results on flipped images are needed.
     opt.display_id = -1  # no visdom display; the test code saves the results to a HTML file.
-    
+
+    pixelart_dir = './examples'
+    image_dir = os.path.join(opt.dataroot,'Input')
+    testA_dir = os.path.join(opt.dataroot,'testA')
+    testB_dir = os.path.join(opt.dataroot,'testB')
+    if not os.path.exists(image_dir):
+        os.makedirs(image_dir)
+    if not os.path.exists(testA_dir):
+        os.makedirs(testA_dir)
+    if not os.path.exists(testB_dir):
+        os.makedirs(testB_dir)
+
     Rescale = True
     cell_size_lst=[int(i) for i in opt.cell_size.split(',')]
 

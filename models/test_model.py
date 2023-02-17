@@ -1,5 +1,10 @@
 from .base_model import BaseModel
 from . import networks
+import torch
+import itertools
+from util.image_pool import ImagePool
+import os
+import torch.nn.functional as F
 
 
 class TestModel(BaseModel):
@@ -42,8 +47,28 @@ class TestModel(BaseModel):
         self.visual_names = ['real', 'fake']
         # specify the models you want to save to the disk. The training/test scripts will call <BaseModel.save_networks> and <BaseModel.load_networks>
         self.model_names = ['G' + opt.model_suffix]  # only generator is needed.
-        self.netG = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG,
-                                      opt.norm, not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
+        
+        #@pw
+        if opt.model_suffix=='_A':
+            self.netG = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG_A, opt.norm,
+                                        not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
+        elif opt.model_suffix=='_B':
+            self.netG = networks.define_G(opt.output_nc, opt.input_nc, opt.ngf, opt.netG_B, opt.norm,
+                                        not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
+        elif opt.model_suffix=='_Alias':
+            self.netG = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, "antialias", opt.norm,
+                                           not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
+            
+            #read here instead of models/base_model.py
+            self.model_names=[]
+            load_path = './alias_net.pth'
+            state_dict = torch.load(load_path)
+            for p in list(state_dict.keys()):
+                state_dict["module."+str(p)] = state_dict.pop(p)
+            self.netG.load_state_dict(state_dict)
+            for p in self.netG.parameters():
+                p.requires_grad = False        
+
 
         # assigns the model to self.netG_[suffix] so that it can be loaded
         # please see <BaseModel.load_networks>
