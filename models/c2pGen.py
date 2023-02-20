@@ -74,13 +74,31 @@ class AliasRGBDecoder(nn.Module):
 
 
 class C2PGen(nn.Module):
-    def __init__(self, input_dim, output_dim, dim, n_downsample, n_res, style_dim, mlp_dim, activ='relu', pad_type='reflect'):
+    def __init__(self, input_dim, output_dim, dim, n_downsample, n_res, style_dim, mlp_dim, activ='relu', pad_type='reflect',pretrained=False):
         super(C2PGen, self).__init__()
         self.PBEnc = PixelBlockEncoder(input_dim, dim, style_dim, norm='none', activ=activ, pad_type=pad_type)
         self.RGBEnc = RGBEncoder(input_dim, dim, n_downsample, n_res, "in", activ, pad_type=pad_type)
         self.RGBDec = RGBDecoder(self.RGBEnc.output_dim, output_dim, n_downsample, n_res, res_norm='adain',
                                       activ=activ, pad_type=pad_type)
         self.MLP = MLP(style_dim, 2048, mlp_dim, 3, norm='none', activ=activ)
+        #@pw:use pretrained PBEnc and MLP
+        if pretrained:
+            print('--------Load CSEnc--------')
+            load_path='./160_net_G_A.pth'
+            state_dict=torch.load(load_path)
+            
+            pbenc_dict=self.PBEnc.state_dict()
+            pbenc_dict.update({k:v for k,v in state_dict.items() if k in pbenc_dict.keys()})
+            self.PBEnc.load_state_dict(pbenc_dict)
+            for p in self.PBEnc.parameters():
+                p.requires_grad=False
+
+            mlp_dict=self.MLP.state_dict()
+            mlp_dict.update({k:v for k,v in state_dict.items() if k in mlp_dict.keys()})
+            self.MLP.load_state_dict(mlp_dict)
+            for p in self.MLP.parameters():
+                p.requires_grad=False
+
 
     def forward(self, clipart, pixelart, s=1):
         feature = self.RGBEnc(clipart)
@@ -120,17 +138,12 @@ class PixelBlockEncoder(nn.Module):
     def __init__(self, input_dim, dim, style_dim, norm, activ, pad_type):
         super(PixelBlockEncoder, self).__init__()
         vgg19 = models.vgg.vgg19(pretrained=False)
+        #?
         vgg19.classifier._modules['6'] = nn.Linear(4096, 7, bias=True)
         vgg19.load_state_dict(torch.load('./pixelart_vgg19.pth'))
         self.vgg = vgg19.features
         for p in self.vgg.parameters():
             p.requires_grad = False
-        # vgg19 = models.vgg.vgg19(pretrained=False)
-        # vgg19.load_state_dict(torch.load('./vgg.pth'))
-        # self.vgg = vgg19.features
-        # for p in self.vgg.parameters():
-        #     p.requires_grad = False
-
 
         self.conv1 = ConvBlock(input_dim, dim, 7, 1, 3, norm=norm, activation=activ, pad_type=pad_type)  # 3->64,concat
         dim = dim * 2

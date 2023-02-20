@@ -63,6 +63,7 @@ class TestyModel(BaseModel):
         load_path = './alias_net.pth'
         state_dict = torch.load(load_path)
         for p in list(state_dict.keys()):
+            #why delete module. params???
             state_dict["module."+str(p)] = state_dict.pop(p)
         self.alias_net.load_state_dict(state_dict)
         for p in self.alias_net.parameters():
