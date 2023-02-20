@@ -25,12 +25,14 @@ def save_images(webpage, visuals, image_path, aspect_ratio=1.0, width=480):
 
     This function will save images stored in 'visuals' to the HTML file specified by 'webpage'.
     """
-    image_dir = webpage.get_image_dir()
+    image_dir = webpage.get_image_dir() #str like './results/test1/test_latest/images'
     short_path = ntpath.basename(image_path[0])
     name = os.path.splitext(short_path)[0]
 
     webpage.add_header(name)
     ims, txts, links = [], [], []
+
+    father_dir=ntpath.dirname(image_dir) #@pw
 
     for label, im_data in visuals.items():
         im = util.tensor2im(im_data)
@@ -41,17 +43,17 @@ def save_images(webpage, visuals, image_path, aspect_ratio=1.0, width=480):
         util.save_image(im, save_path, aspect_ratio=aspect_ratio)
         
         #@pw: save to dirs
-        save_dir=os.path.join(image_dir,label)
+        save_dir=os.path.join(father_dir,label)
         if not os.path.exists(save_dir):
             os.mkdir(save_dir)
         save_path_2=os.path.join(save_dir,image_name)
         util.save_image(im,save_path_2, aspect_ratio=aspect_ratio)
         #@pw:resample
         if label=='fake_B':
-            re_dir=os.path.join(image_dir,'re_fake_B')
+            re_dir=os.path.join(father_dir,'re_fake_B')
             if not os.path.exists(re_dir):
                 os.mkdir(re_dir)
-            save_path_3=os.path.join(re_path,image_name)
+            save_path_3=os.path.join(re_dir,image_name)
             image_pil = Image.fromarray(im)
             cell=name.split('_')[0]
             t_size=tuple([i//int(cell) for i in image_pil.size])
@@ -62,6 +64,7 @@ def save_images(webpage, visuals, image_path, aspect_ratio=1.0, width=480):
         txts.append(label)
         links.append(image_name)
     webpage.add_images(ims, txts, links, width=width)
+
 
 
 class Visualizer():

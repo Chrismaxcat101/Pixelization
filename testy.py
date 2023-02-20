@@ -63,7 +63,7 @@ if __name__ == '__main__':
 
     pixelart_dir = './examples'
     image_dir = os.path.join(opt.dataroot,'Input')
-    testA_dir = os.path.join(opt.dataroot,'testA')
+    testA_dir = os.path.join(opt.dataroot,'testA') #testA,testB should be empty.
     testB_dir = os.path.join(opt.dataroot,'testB')
     if not os.path.exists(image_dir):
         os.makedirs(image_dir)
@@ -74,39 +74,23 @@ if __name__ == '__main__':
 
     Rescale = True
     cell_size_lst=[int(i) for i in opt.cell_size.split(',')]
+    for num,file in enumerate(os.listdir(image_dir)):
 
-    if opt.not_rename:
-        for file in os.listdir(image_dir):
-            if file.endswith('png') or file.endswith('jpg'):
-                image_path = os.path.join(image_dir, file)
-                image = Image.open(image_path).convert('RGB')
-                image = rescale(image, Rescale)
-                num=file.split('.')[0]
-                for Cell_Size in cell_size_lst:
-                    save_path = os.path.join(testA_dir, '{}_{}.png'.format(Cell_Size,num))
-                    pixelart_path = os.path.join(pixelart_dir, '{}_1.png'.format(Cell_Size))
-                    pixelart_save_path = os.path.join(testB_dir, '{}_{}.png'.format(Cell_Size,num))
-                    image.save(save_path)
-                    shutil.copy(pixelart_path, pixelart_save_path)
-            else:
-                print('The format of input image should be jpg or png.')
-
-    else:
-        num = 1
-        for file in os.listdir(image_dir):
-            if file.endswith('png') or file.endswith('jpg'):
-                image_path = os.path.join(image_dir, file)
-                image = Image.open(image_path).convert('RGB')
-                image = rescale(image, Rescale)
-                for Cell_Size in cell_size_lst:
-                    save_path = os.path.join(testA_dir, '{}_{}.png'.format(Cell_Size,num))
-                    pixelart_path = os.path.join(pixelart_dir, '{}_1.png'.format(Cell_Size))
-                    pixelart_save_path = os.path.join(testB_dir, '{}_{}.png'.format(Cell_Size,num))
-                    image.save(save_path)
-                    shutil.copy(pixelart_path, pixelart_save_path)
-                num += 1
-            else:
-                print('The format of input image should be jpg or png.')
+        name=file.split('.')[0] if opt.not_rename else num+1 #rename except for video frames.
+        
+        if file.endswith('png') or file.endswith('jpg'):
+            image_path = os.path.join(image_dir, file)
+            image = Image.open(image_path).convert('RGB')
+            image = rescale(image, Rescale)
+            for Cell_Size in cell_size_lst:
+                save_path = os.path.join(testA_dir, '{}_{}.png'.format(Cell_Size,num))
+                pixelart_path = os.path.join(pixelart_dir, '{}_1.png'.format(Cell_Size))
+                pixelart_save_path = os.path.join(testB_dir, '{}_{}.png'.format(Cell_Size,num))
+                image.save(save_path)
+                shutil.copy(pixelart_path, pixelart_save_path)
+            num += 1
+        else:
+            print('The format of input image should be jpg or png.')    
 
 
     dataset = create_dataset(opt)  # create a dataset given opt.dataset_mode and other options
