@@ -2,77 +2,6 @@ from .basic_layer import *
 import torchvision.models as models
 
 
-
-class AliasNet(nn.Module):
-    def __init__(self, input_dim, output_dim, dim, n_downsample, n_res, activ='relu', pad_type='reflect'):
-        super(AliasNet, self).__init__()
-        self.RGBEnc = AliasRGBEncoder(input_dim, dim, n_downsample, n_res, "in", activ, pad_type=pad_type)
-        self.RGBDec = AliasRGBDecoder(self.RGBEnc.output_dim, output_dim, n_downsample, n_res, res_norm='in',
-                                      activ=activ, pad_type=pad_type)
-
-    def forward(self, x):
-        x = self.RGBEnc(x)
-        x = self.RGBDec(x)
-        return x
-
-
-class AliasRGBEncoder(nn.Module):
-    def __init__(self, input_dim, dim, n_downsample, n_res, norm, activ, pad_type):
-        super(AliasRGBEncoder, self).__init__()
-        self.model = []
-        self.model += [AliasConvBlock(input_dim, dim, 7, 1, 3, norm=norm, activation=activ, pad_type=pad_type)]
-        # downsampling blocks
-        for i in range(n_downsample):
-            self.model += [AliasConvBlock(dim, 2 * dim, 4, 2, 1, norm=norm, activation=activ, pad_type=pad_type)]
-            dim *= 2
-        # residual blocks
-        self.model += [AliasResBlocks(n_res, dim, norm=norm, activation=activ, pad_type=pad_type)]
-        self.model = nn.Sequential(*self.model)
-        self.output_dim = dim
-
-    def forward(self, x):
-        return self.model(x)
-
-
-class AliasRGBDecoder(nn.Module):
-    def __init__(self, dim, output_dim, n_upsample, n_res, res_norm, activ='relu', pad_type='zero'):
-        super(AliasRGBDecoder, self).__init__()
-        # self.model = []
-        # # AdaIN residual blocks
-        # self.model += [ResBlocks(n_res, dim, res_norm, activ, pad_type=pad_type)]
-        # # upsampling blocks
-        # for i in range(n_upsample):
-        #     self.model += [nn.Upsample(scale_factor=2, mode='nearest'),
-        #                    ConvBlock(dim, dim // 2, 5, 1, 2, norm='ln', activation=activ, pad_type=pad_type)]
-        #     dim //= 2
-        # # use reflection padding in the last conv layer
-        # self.model += [ConvBlock(dim, output_dim, 7, 1, 3, norm='none', activation='tanh', pad_type=pad_type)]
-        # self.model = nn.Sequential(*self.model)
-        self.Res_Blocks = AliasResBlocks(n_res, dim, res_norm, activ, pad_type=pad_type)
-        self.upsample_block1 = nn.Upsample(scale_factor=2, mode='nearest')
-        self.conv_1 = AliasConvBlock(dim, dim // 2, 5, 1, 2, norm='ln', activation=activ, pad_type=pad_type)
-        dim //= 2
-        self.upsample_block2 = nn.Upsample(scale_factor=2, mode='nearest')
-        self.conv_2 = AliasConvBlock(dim, dim // 2, 5, 1, 2, norm='ln', activation=activ, pad_type=pad_type)
-        dim //= 2
-        self.conv_3 = AliasConvBlock(dim, output_dim, 7, 1, 3, norm='none', activation='tanh', pad_type=pad_type)
-
-    def forward(self, x):
-        x = self.Res_Blocks(x)
-        # print(x.shape)
-        x = self.upsample_block1(x)
-        # print(x.shape)
-        x = self.conv_1(x)
-        # print(x_small.shape)
-        x = self.upsample_block2(x)
-        # print(x.shape)
-        x = self.conv_2(x)
-        # print(x_middle.shape)
-        x = self.conv_3(x)
-        # print(x_big.shape)
-        return x
-
-
 class C2PGen(nn.Module):
     def __init__(self, input_dim, output_dim, dim, n_downsample, n_res, style_dim, mlp_dim, activ='relu', pad_type='reflect',pretrained=False):
         super(C2PGen, self).__init__()
@@ -82,6 +11,7 @@ class C2PGen(nn.Module):
                                       activ=activ, pad_type=pad_type)
         self.MLP = MLP(style_dim, 2048, mlp_dim, 3, norm='none', activ=activ)
         #@pw:use pretrained PBEnc and MLP
+        #assume it works...
         if pretrained:
             print('--------Load CSEnc--------')
             load_path='./160_net_G_A.pth'
@@ -276,3 +206,72 @@ class RGBDecoder(nn.Module):
         # print(x_big.shape)
         return x
 
+
+class AliasNet(nn.Module):
+    def __init__(self, input_dim, output_dim, dim, n_downsample, n_res, activ='relu', pad_type='reflect'):
+        super(AliasNet, self).__init__()
+        self.RGBEnc = AliasRGBEncoder(input_dim, dim, n_downsample, n_res, "in", activ, pad_type=pad_type)
+        self.RGBDec = AliasRGBDecoder(self.RGBEnc.output_dim, output_dim, n_downsample, n_res, res_norm='in',
+                                      activ=activ, pad_type=pad_type)
+
+    def forward(self, x):
+        x = self.RGBEnc(x)
+        x = self.RGBDec(x)
+        return x
+
+
+class AliasRGBEncoder(nn.Module):
+    def __init__(self, input_dim, dim, n_downsample, n_res, norm, activ, pad_type):
+        super(AliasRGBEncoder, self).__init__()
+        self.model = []
+        self.model += [AliasConvBlock(input_dim, dim, 7, 1, 3, norm=norm, activation=activ, pad_type=pad_type)]
+        # downsampling blocks
+        for i in range(n_downsample):
+            self.model += [AliasConvBlock(dim, 2 * dim, 4, 2, 1, norm=norm, activation=activ, pad_type=pad_type)]
+            dim *= 2
+        # residual blocks
+        self.model += [AliasResBlocks(n_res, dim, norm=norm, activation=activ, pad_type=pad_type)]
+        self.model = nn.Sequential(*self.model)
+        self.output_dim = dim
+
+    def forward(self, x):
+        return self.model(x)
+
+
+class AliasRGBDecoder(nn.Module):
+    def __init__(self, dim, output_dim, n_upsample, n_res, res_norm, activ='relu', pad_type='zero'):
+        super(AliasRGBDecoder, self).__init__()
+        # self.model = []
+        # # AdaIN residual blocks
+        # self.model += [ResBlocks(n_res, dim, res_norm, activ, pad_type=pad_type)]
+        # # upsampling blocks
+        # for i in range(n_upsample):
+        #     self.model += [nn.Upsample(scale_factor=2, mode='nearest'),
+        #                    ConvBlock(dim, dim // 2, 5, 1, 2, norm='ln', activation=activ, pad_type=pad_type)]
+        #     dim //= 2
+        # # use reflection padding in the last conv layer
+        # self.model += [ConvBlock(dim, output_dim, 7, 1, 3, norm='none', activation='tanh', pad_type=pad_type)]
+        # self.model = nn.Sequential(*self.model)
+        self.Res_Blocks = AliasResBlocks(n_res, dim, res_norm, activ, pad_type=pad_type)
+        self.upsample_block1 = nn.Upsample(scale_factor=2, mode='nearest')
+        self.conv_1 = AliasConvBlock(dim, dim // 2, 5, 1, 2, norm='ln', activation=activ, pad_type=pad_type)
+        dim //= 2
+        self.upsample_block2 = nn.Upsample(scale_factor=2, mode='nearest')
+        self.conv_2 = AliasConvBlock(dim, dim // 2, 5, 1, 2, norm='ln', activation=activ, pad_type=pad_type)
+        dim //= 2
+        self.conv_3 = AliasConvBlock(dim, output_dim, 7, 1, 3, norm='none', activation='tanh', pad_type=pad_type)
+
+    def forward(self, x):
+        x = self.Res_Blocks(x)
+        # print(x.shape)
+        x = self.upsample_block1(x)
+        # print(x.shape)
+        x = self.conv_1(x)
+        # print(x_small.shape)
+        x = self.upsample_block2(x)
+        # print(x.shape)
+        x = self.conv_2(x)
+        # print(x_middle.shape)
+        x = self.conv_3(x)
+        # print(x_big.shape)
+        return x

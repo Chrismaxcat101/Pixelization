@@ -10,6 +10,119 @@ from .p2cGen import *
 from .c2pDis import *
 import torchvision
 
+#@pw
+def define_F(input_nc, netF, norm='batch', use_dropout=False, init_type='normal', init_gain=0.02, no_antialias=False, gpu_ids=[], opt=None):
+    if netF == 'global_pool':
+        net = PoolingF()
+    elif netF == 'reshape':
+        net = ReshapeF()
+    elif netF == 'sample':
+        net = PatchSampleF(use_mlp=False, init_type=init_type, init_gain=init_gain, gpu_ids=gpu_ids, nc=opt.netF_nc)
+    elif netF == 'mlp_sample':
+        net = PatchSampleF(use_mlp=True, init_type=init_type, init_gain=init_gain, gpu_ids=gpu_ids, nc=opt.netF_nc)
+    elif netF == 'strided_conv':
+        net = StridedConvF(init_type=init_type, init_gain=init_gain, gpu_ids=gpu_ids)
+    else:
+        raise NotImplementedError('projection model name [%s] is not recognized' % netF)
+    return init_net(net, init_type, init_gain, gpu_ids)
+
+class PatchSampleF(nn.Module):
+    def __init__(self, use_mlp=False, init_type='normal', init_gain=0.02, nc=256, gpu_ids=[]):
+        # potential issues: currently, we use the same patch_ids for multiple images in the batch
+        super(PatchSampleF, self).__init__()
+        self.l2norm = Normalize(2)
+        self.use_mlp = use_mlp
+        self.nc = nc  # hard-coded
+        self.mlp_init = False
+        self.init_type = init_type
+        self.init_gain = init_gain
+        self.gpu_ids = gpu_ids
+
+    def create_mlp(self, feats):
+        for mlp_id, feat in enumerate(feats):
+            input_nc = feat.shape[1]
+            mlp = nn.Sequential(*[nn.Linear(input_nc, self.nc), nn.ReLU(), nn.Linear(self.nc, self.nc)])
+            if len(self.gpu_ids) > 0:
+                mlp.cuda()
+            setattr(self, 'mlp_%d' % mlp_id, mlp)
+        init_net(self, self.init_type, self.init_gain, self.gpu_ids)
+        self.mlp_init = True
+
+    def NeighborSample(self, feat, num_s, sample_ids=None): #@pw
+        """
+        sample neighbors for single layer's feature.
+        """
+        b, c, h, w = feat.size()
+        feat_r = feat.permute(0, 2, 3, 1).flatten(1, 2)
+        if sample_ids is None:
+            sample_ids=[]
+            dic = {0: -(w+1), 1: -w, 2: -(w-1), 3: -1, 4: 1, 5: w-1, 6: w, 7: w+1}
+            s_ids = torch.randperm((h - 2) * (w - 2), device=feat.device) # indices of top left vectors
+            s_ids = s_ids[:int(min(num_s, s_ids.shape[0]))]
+            ch_ids = (s_ids // (w - 2) + 1) # centors
+            cw_ids = (s_ids % (w - 2) + 1)
+            c_ids = (ch_ids * w + cw_ids).repeat(8)
+            delta = [dic[i // num_s] for i in range(8 * num_s)]
+            delta = torch.tensor(delta).to(feat.device)
+            n_ids = c_ids + delta
+            sample_ids += [c_ids]
+            sample_ids += [n_ids]
+        else:
+            c_ids = sample_ids[0]
+            n_ids = sample_ids[1]
+        feat_c, feat_n = feat_r[:, c_ids, :], feat_r[:, n_ids, :]
+        feat_d = feat_c - feat_n
+        return feat_d,sample_ids
+
+    def Sample(self, feat, num_patches, patch_id=None): #@pw moved from forward().
+        """
+        sample single layer's feature.
+        """
+        feat_reshape = feat.permute(0, 2, 3, 1).flatten(1, 2)
+        if num_patches > 0:
+            if patch_id is None:
+                # torch.randperm produces cudaErrorIllegalAddress for newer versions of PyTorch. https://github.com/taesungp/contrastive-unpaired-translation/issues/83
+                #patch_id = torch.randperm(feat_reshape.shape[1], device=feats[0].device)
+                patch_id = np.random.permutation(feat_reshape.shape[1])
+                patch_id = patch_id[:int(min(num_patches, patch_id.shape[0]))]  # .to(patch_ids.device)
+            patch_id = torch.tensor(patch_id, dtype=torch.long, device=feat.device)
+            x_sample = feat_reshape[:, patch_id, :].flatten(0, 1)  # reshape(-1, x.shape[1])
+        else:
+            x_sample = feat_reshape
+            patch_id = []
+            
+        return x_sample,patch_id
+
+    def forward(self, feats, num_patches=64, patch_ids=None,neighbor=False): #@pw
+        """
+        neighbor: use NeighborSample instead of Sample
+        when neighbor==True, num_patches represents num_s.
+        """
+        return_ids = []
+        return_feats = []
+        if self.use_mlp and not self.mlp_init:
+            self.create_mlp(feats)
+        for feat_id, feat in enumerate(feats):
+            B, H, W = feat.shape[0], feat.shape[2], feat.shape[3]
+            patch_id=None if patch_ids is None else patch_ids[feat_id]
+            
+            if neighbor:
+                x_sample,patch_id=self.NeighborSample(feat,num_patches,patch_id)
+            else:
+                x_sample,patch_id=self.Sample(feat,num_patches,patch_id)
+            
+            if self.use_mlp:
+                mlp = getattr(self, 'mlp_%d' % feat_id)
+                x_sample = mlp(x_sample)
+            return_ids.append(patch_id)
+            x_sample = self.l2norm(x_sample)
+
+            if num_patches == 0:
+                x_sample = x_sample.permute(0, 2, 1).reshape([B, x_sample.shape[-1], H, W])
+            return_feats.append(x_sample)
+        return return_feats, return_ids
+
+
 
 class Identity(nn.Module):
     def forward(self, x):
@@ -115,7 +228,7 @@ def init_net(net, init_type='normal', init_gain=0.02, gpu_ids=[]):
     return net
 
 
-def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, init_type='normal', init_gain=0.02, gpu_ids=[]):
+def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, init_type='normal', init_gain=0.02, gpu_ids=[],pretrained=False):
     """Create a generator
 
     Parameters:
@@ -135,7 +248,7 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
     norm_layer = get_norm_layer(norm_type=norm)
 
     if netG == 'c2pGen':  #                     style_dim  mlp_dim
-        net = C2PGen(input_nc, output_nc, ngf, 2, 4, 256, 256, activ='relu', pad_type='reflect')
+        net = C2PGen(input_nc, output_nc, ngf, 2, 4, 256, 256, activ='relu', pad_type='reflect',pretrained=pretrained)
         print('c2pgen resblock is 8')
     elif netG == 'p2cGen':
         net = P2CGen(input_nc, output_nc, ngf, 2, 3, activ='relu', pad_type='reflect')
