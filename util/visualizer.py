@@ -34,9 +34,30 @@ def save_images(webpage, visuals, image_path, aspect_ratio=1.0, width=480):
 
     for label, im_data in visuals.items():
         im = util.tensor2im(im_data)
+        #4_1,real_A
         image_name = '%s_%s.png' % (name, label)
         save_path = os.path.join(image_dir, image_name)
+        #image_numpy, image_path, aspect_ratio=1.0)
         util.save_image(im, save_path, aspect_ratio=aspect_ratio)
+        
+        #@pw: save to dirs
+        save_dir=os.path.join(image_dir,label)
+        if not os.path.exists(save_dir):
+            os.mkdir(save_dir)
+        save_path_2=os.path.join(save_dir,image_name)
+        util.save_image(im,save_path_2, aspect_ratio=aspect_ratio)
+        #@pw:resample
+        if label=='fake_B':
+            re_dir=os.path.join(image_dir,'re_fake_B')
+            if not os.path.exists(re_dir):
+                os.mkdir(re_dir)
+            save_path_3=os.path.join(re_path,image_name)
+            image_pil = Image.fromarray(im)
+            cell=name.split('_')[0]
+            t_size=tuple([i//int(cell) for i in image_pil.size])
+            im_resize=image_pil.resize(t_size,Image.NEAREST).resize(image_pil.size,Image.NEAREST)
+            im_resize.save(save_path_3)
+
         ims.append(image_name)
         txts.append(label)
         links.append(image_name)
