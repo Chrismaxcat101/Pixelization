@@ -153,9 +153,9 @@ class RGBEncoder(nn.Module):
         if len(layers)>0:
             feats=[]
             for layer_id,layer in enumerate(self.model):
-                feat=layer(feat)
+                x=layer(x)
                 if layer_id in layers:
-                    feats.append(feat)
+                    feats.append(x)
                 if layer_id==layers[-1] and encode_only:
                     #stop in the last layer
                     return feats

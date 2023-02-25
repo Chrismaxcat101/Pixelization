@@ -30,7 +30,7 @@ if __name__ == '__main__':
             total_iters += opt.batch_size
             epoch_iter += opt.batch_size
 
-            #@pw:
+            #@pw:add
             if len(opt.gpu_ids) > 0:
                 torch.cuda.synchronize()
             optimize_start_time = time.time()
@@ -66,4 +66,4 @@ if __name__ == '__main__':
             model.save_networks(epoch)
 
         print('End of epoch %d / %d \t Time Taken: %d sec' % (epoch, opt.n_epochs + opt.n_epochs_decay, time.time() - epoch_start_time))
-        model.update_learning_rate()    # update learning rates in the beginning of every epoch.
+        model.update_learning_rate()    #@pw:move to the last of every epoch.

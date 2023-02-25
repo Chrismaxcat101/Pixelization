@@ -43,6 +43,7 @@ class PatchSampleF(nn.Module):
         #Need to edit nce_model.py
 
     def create_mlp(self, feats):
+        #create mlp for each layer's feature in feats. The param needed is input_nc
         for mlp_id, feat in enumerate(feats):
             input_nc = feat.shape[1]
             mlp = nn.Sequential(*[nn.Linear(input_nc, self.nc), nn.ReLU(), nn.Linear(self.nc, self.nc)])
