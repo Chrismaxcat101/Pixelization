@@ -30,7 +30,7 @@ class PixelizationModel(BaseModel):
             parser.add_argument('--lambda_LMC', type=float, default=1.0, help='')
             parser.add_argument('--lambda_NCE_X', type=float, default=1.0, help='weight for NCE loss: NCE(G(X), X)')
             parser.add_argument('--lambda_NCE_Y', type=float, default=1.0, help='weight for NCE loss: NCE(G(Y), Y)')
-            parser.add_argument('--nce_layers', type=str, default='0,4,8,12,16', help='compute NCE loss on which layers')
+            parser.add_argument('--nce_layers', type=str, default='0,1,2,3,6', help='compute NCE loss on which layers')
             
             parser.add_argument('--netF', type=str, default='mlp_sample', choices=['sample', 'reshape', 'mlp_sample'], help='how to downsample the feature map')
             parser.add_argument('--netF_nc', type=int, default=256)

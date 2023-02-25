@@ -142,7 +142,8 @@ class RGBEncoder(nn.Module):
         self.model = nn.Sequential(*self.model)
         self.output_dim = dim
 
-    def forward(self, x,layers=[],encode_only=False): #@pw
+    def forward(self, x,layers=[],encode_only=False): 
+        #@pw: layers from 0 to 6
         if len(layers)>0:
             feats=[]
             for layer_id,layer in enumerate(self.model):
