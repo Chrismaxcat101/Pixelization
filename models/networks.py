@@ -37,6 +37,10 @@ class PatchSampleF(nn.Module):
         self.init_type = init_type
         self.init_gain = init_gain
         self.gpu_ids = gpu_ids
+        #ValueError: optimizer got an empty parameter list
+        #I didn't define the network in __init__()
+        #Because the weights of netF are initialized at the first feedforward pass with some input images.
+        #Need to edit nce_model.py
 
     def create_mlp(self, feats):
         for mlp_id, feat in enumerate(feats):
@@ -122,7 +126,18 @@ class PatchSampleF(nn.Module):
             return_feats.append(x_sample)
         return return_feats, return_ids
 
+class Normalize(nn.Module):
 
+    def __init__(self, power=2):
+        super(Normalize, self).__init__()
+        self.power = power
+
+    def forward(self, x):
+        norm = x.pow(self.power).sum(1, keepdim=True).pow(1. / self.power)
+        out = x.div(norm + 1e-7)
+        return out
+
+#########
 
 class Identity(nn.Module):
     def forward(self, x):
@@ -228,7 +243,7 @@ def init_net(net, init_type='normal', init_gain=0.02, gpu_ids=[]):
     return net
 
 
-def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, init_type='normal', init_gain=0.02, gpu_ids=[],pretrained=False):
+def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, init_type='normal', init_gain=0.02, gpu_ids=[],pretrained=False,is_train=False):
     """Create a generator
 
     Parameters:
@@ -244,11 +259,12 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
 
     Returns a generator
     """
+    #@pw:add pretraind, is_train
     net = None
     norm_layer = get_norm_layer(norm_type=norm)
 
     if netG == 'c2pGen':  #                     style_dim  mlp_dim
-        net = C2PGen(input_nc, output_nc, ngf, 2, 4, 256, 256, activ='relu', pad_type='reflect',pretrained=pretrained)
+        net = C2PGen(input_nc, output_nc, ngf, 2, 4, 256, 256, activ='relu', pad_type='reflect',pretrained=pretrained,is_train=is_train)
         print('c2pgen resblock is 8')
     elif netG == 'p2cGen':
         net = P2CGen(input_nc, output_nc, ngf, 2, 3, activ='relu', pad_type='reflect')

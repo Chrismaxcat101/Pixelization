@@ -3,16 +3,19 @@ import torchvision.models as models
 
 
 class C2PGen(nn.Module):
-    def __init__(self, input_dim, output_dim, dim, n_downsample, n_res, style_dim, mlp_dim, activ='relu', pad_type='reflect',pretrained=False):
+    def __init__(self, input_dim, output_dim, dim, n_downsample, n_res, style_dim, mlp_dim, activ='relu', pad_type='reflect',pretrained=False,is_train=False):
         super(C2PGen, self).__init__()
         self.PBEnc = PixelBlockEncoder(input_dim, dim, style_dim, norm='none', activ=activ, pad_type=pad_type)
-        self.RGBEnc = RGBEncoder(input_dim, dim, n_downsample, n_res, "in", activ, pad_type=pad_type)
+        self.RGBEnc = RGBEncoder(input_dim, dim, n_downsample, n_res, "in", activ, pad_type=pad_type,is_train=is_train)
         self.RGBDec = RGBDecoder(self.RGBEnc.output_dim, output_dim, n_downsample, n_res, res_norm='adain',
                                       activ=activ, pad_type=pad_type)
         self.MLP = MLP(style_dim, 2048, mlp_dim, 3, norm='none', activ=activ)
-        #@pw:use pretrained PBEnc and MLP
+        #@pw: add pretraind and is_train
+        #use pretrained PBEnc and MLP
         #assume it works...
-        if pretrained:
+        self.is_train=is_train
+        self.pretrained=pretrained
+        if self.pretrained:
             print('--------Load CSEnc--------')
             load_path='./160_net_G_A.pth'
             state_dict=torch.load(load_path)
@@ -125,7 +128,8 @@ class PixelBlockEncoder(nn.Module):
         return code
 
 class RGBEncoder(nn.Module):
-    def __init__(self, input_dim, dim, n_downsample, n_res, norm, activ, pad_type):
+    def __init__(self, input_dim, dim, n_downsample, n_res, norm, activ, pad_type,is_train=False):
+        #@pw:add is_train
         super(RGBEncoder, self).__init__()
         self.model = []
         self.model += [ConvBlock(input_dim, dim, 7, 1, 3, norm=norm, activation=activ, pad_type=pad_type)]
@@ -134,10 +138,12 @@ class RGBEncoder(nn.Module):
             self.model += [ConvBlock(dim, 2 * dim, 4, 2, 1, norm=norm, activation=activ, pad_type=pad_type)]
             dim *= 2
         # residual blocks
-        # self.model += [ResBlocks(n_res, dim, norm=norm, activation=activ, pad_type=pad_type)]
-        #@pw: for convenience in encode_only, split the block
-        for i in range(n_res):
-            self.model+=[ResBlock(dim,norm=norm,activation=activ,pad_type=pad_type)]
+        if is_train:
+            #@pw: for convenience in encode_only, split the block
+            for i in range(n_res):
+                self.model+=[ResBlock(dim,norm=norm,activation=activ,pad_type=pad_type)]
+        else:
+            self.model += [ResBlocks(n_res, dim, norm=norm, activation=activ, pad_type=pad_type)]
         
         self.model = nn.Sequential(*self.model)
         self.output_dim = dim

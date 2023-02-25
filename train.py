@@ -3,6 +3,7 @@ from options.train_options import TrainOptions
 from data import create_dataset
 from models import create_model
 from util.visualizer import Visualizer
+import torch
 
 
 if __name__ == '__main__':
@@ -11,7 +12,7 @@ if __name__ == '__main__':
     dataset_size = len(dataset)    # get the number of images in the dataset.
     print('The number of training images = %d' % dataset_size)
     model = create_model(opt)      # create a model given opt.model and other options
-    model.setup(opt)               # regular setup: load and print networks; create schedulers
+    # model.setup(opt)               # regular setup: load and print networks; create schedulers
     visualizer = Visualizer(opt)   # create a visualizer that display/save images and plots
     total_iters = 0                # the total number of training iterations
 
@@ -20,7 +21,7 @@ if __name__ == '__main__':
         iter_data_time = time.time()    # timer for data loading per iteration
         epoch_iter = 0                  # the number of training iterations in current epoch, reset to 0 every epoch
         visualizer.reset()              # reset the visualizer: make sure it saves the results to HTML at least once every epoch
-        model.update_learning_rate()    # update learning rates in the beginning of every epoch.
+        # model.update_learning_rate()    # update learning rates in the beginning of every epoch.
         for i, data in enumerate(dataset):  # inner loop within one epoch
             iter_start_time = time.time()  # timer for computation per iteration
             if total_iters % opt.print_freq == 0:
@@ -28,6 +29,16 @@ if __name__ == '__main__':
             #print(i,data['B_gray'].shape,len(dataset))
             total_iters += opt.batch_size
             epoch_iter += opt.batch_size
+
+            #@pw:
+            if len(opt.gpu_ids) > 0:
+                torch.cuda.synchronize()
+            optimize_start_time = time.time()
+            if epoch == opt.epoch_count and i == 0:
+                model.data_dependent_initialize(data)
+                model.setup(opt)               # regular setup: load and print networks; create schedulers
+                model.parallelize()
+
             model.set_input(data)         # unpack data from dataset and apply preprocessing
             model.optimize_parameters(i,epoch)   # calculate loss functions, get gradients, update network weights
 
@@ -55,3 +66,4 @@ if __name__ == '__main__':
             model.save_networks(epoch)
 
         print('End of epoch %d / %d \t Time Taken: %d sec' % (epoch, opt.n_epochs + opt.n_epochs_decay, time.time() - epoch_start_time))
+        model.update_learning_rate()    # update learning rates in the beginning of every epoch.

@@ -76,7 +76,7 @@ if __name__ == '__main__':
     Rescale = True
 
     random.seed(3710)           
-    cell_size_lst=[int(i) for i in opt.cell_size.split(',')]
+    cell_size_lst=[int(i) for i in opt.cell_size.split(',')] #int list
     for num,file in enumerate(os.listdir(image_dir)):
         name=file.split('.')[0] if opt.not_rename else num+1 #rename except for video frames.
         if file.endswith('png') or file.endswith('jpg'):
@@ -84,8 +84,8 @@ if __name__ == '__main__':
             image = Image.open(image_path).convert('RGB')
             image = rescale(image, Rescale)
             for Cell_Size in cell_size_lst:
-                if Cell_Size=='-1':
-                    Cell_Size=str(random.randint(2,8))
+                if Cell_Size==-1:
+                    Cell_Size=random.randint(2,8)
                 save_path = os.path.join(testA_dir, '{}_{}.png'.format(Cell_Size,num))
                 pixelart_path = os.path.join(pixelart_dir, '{}_1.png'.format(Cell_Size))
                 pixelart_save_path = os.path.join(testB_dir, '{}_{}.png'.format(Cell_Size,num))

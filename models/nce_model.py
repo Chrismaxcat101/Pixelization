@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from .patchnce import PatchNCELoss
 
 
-class PixelizationModel(BaseModel):
+class NCEModel(BaseModel):
     @staticmethod
     def modify_commandline_options(parser, is_train=True):
         """Add new dataset-specific options, and rewrite default values for existing options.
@@ -65,7 +65,7 @@ class PixelizationModel(BaseModel):
         # self.visual_names = visual_names_A + visual_names_B  # combine visualizations for A and B
         self.visual_names = visual_names_A
         # specify the models you want to save to the disk. The training/test scripts will call <BaseModel.save_networks> and <BaseModel.load_networks>.
-        if self.isTrain:
+        if opt.isTrain:
             # self.model_names = ['G_A', 'G_B', 'D_A', 'D_B']
             self.model_names=['G_A','D_A','F']
         else:  # during test time, only load Gs
@@ -75,7 +75,7 @@ class PixelizationModel(BaseModel):
 
         # define networks (both Generators and discriminators)
         self.netG_A = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG_A, opt.norm,
-                                        not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids,pretrained=opt.pretrained)
+                                        not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids,pretrained=opt.pretrained,is_train=opt.isTrain)
         # self.netG_B = networks.define_G(opt.output_nc, opt.input_nc, opt.ngf, opt.netG_B, opt.norm,
                                         # not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
         # self.alias_net = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, "antialias", opt.norm,
@@ -84,13 +84,13 @@ class PixelizationModel(BaseModel):
 
 
 
-        if self.isTrain:  # define discriminators
+        if opt.isTrain:  # define discriminators
             self.netD_A = networks.define_D(opt.output_nc, opt.ndf, 'CPDis_cls',
                                             opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids)
             # self.netD_B = networks.define_D(opt.input_nc, opt.ndf, opt.netD,
                                             # opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids)
 
-        if self.isTrain:
+        if opt.isTrain:
             if opt.lambda_identity > 0.0:  # only works when input and output images have the same number of channels
                 assert(opt.input_nc == opt.output_nc)
             # self.fake_A_pool = ImagePool(opt.pool_size)  # create image buffer to store previously generated images
@@ -115,13 +115,12 @@ class PixelizationModel(BaseModel):
             self.optimizer_G = torch.optim.Adam(self.netG_A.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             # self.optimizer_D = torch.optim.Adam(self.netD_B.parameters(),lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizer_D_cls = torch.optim.Adam(self.netD_A.parameters(),lr=opt.lr, betas=(opt.beta1, 0.999))
-            self.optimizer_F=torch.optim.Adam(self.netF.parameters(),lr=opt.lr,betas=(opt.beta1,0.999))
+            # self.optimizer_F=torch.optim.Adam(self.netF.parameters(),lr=opt.lr,betas=(opt.beta1,0.999))
 
             self.optimizers.append(self.optimizer_G)
             # self.optimizers.append(self.optimizer_D)
             self.optimizers.append(self.optimizer_D_cls)
-            self.optimizers.append(self.optimizer_F)
-
+            # self.optimizers.append(self.optimizer_F)
 
         # Load parameters
         # print('--------Load AliasNet--------')
@@ -141,14 +140,12 @@ class PixelizationModel(BaseModel):
 
         The option 'direction' can be used to swap domain A and domain B.
         """
-
         AtoB = self.opt.direction == 'AtoB'
         self.real_A = input['A' if AtoB else 'B'].to(self.device)
         self.B_gray = input['B_gray'].to(self.device)
         self.label = input['label'].to(self.device)  # [4]
         self.real_B = input['B' if AtoB else 'A'].to(self.device)
         self.image_paths = input['A_paths' if AtoB else 'B_paths']
-
 
     # def RGB2GRAY(self, RGB_image):
     #     gray_image = None
@@ -294,21 +291,46 @@ class PixelizationModel(BaseModel):
         self.loss_G=self.loss_G_A+self.loss_color_A+self.loss_G_CLS+self.loss_NCE_both
         self.loss_G.backward()
 
+    def data_dependent_initialize(self, data):
+        """
+        The feature network netF is defined in terms of the shape of the intermediate, extracted
+        features of the encoder portion of netG. Because of this, the weights of netF are
+        initialized at the first feedforward pass with some input images.
+        Please also see PatchSampleF.create_mlp(), which is called at the first forward() call.
+        """
+        bs_per_gpu = data["A"].size(0) // max(len(self.opt.gpu_ids), 1)
+        self.set_input(data)
+        self.real_A = self.real_A[:bs_per_gpu]
+        self.real_B = self.real_B[:bs_per_gpu]
+
+        self.forward()                     # compute fake images: G(A)
+        if self.opt.isTrain:
+            # calculate gradients for D
+            self.backward_D_A()
+            # calculate graidents for G
+            self.backward_G(self.opt.epoch_count)
+            if self.opt.lambda_NCE > 0.0:
+                self.optimizer_F = torch.optim.Adam(self.netF.parameters(), lr=self.opt.lr, betas=(self.opt.beta1, 0.999))
+                self.optimizers.append(self.optimizer_F)
+
+
     def optimize_parameters(self, i,epoch):
         """Calculate losses, gradients, and update network weights; called in every training iteration"""
         # forward
         self.forward()      # compute fake images and reconstruction images.
-        
+
+        #@pw:init optimF before model.optimize_parameters()
+        # if i==0 and epoch==self.opt.epoch_count:
+        #     self.optimizer_F = torch.optim.Adam(self.netF.parameters(), lr=self.opt.lr, betas=(self.opt.beta1, 0.999))
+        #     self.optimizers.append(self.optimizer_F)
+
         # G_A and G_B
         # self.set_requires_grad([self.netD_A, self.netD_B], False)  # Ds require no gradients when optimizing Gs
         self.set_requires_grad([self.netD_A], False)  # Ds require no gradients when optimizing Gs        
         self.optimizer_G.zero_grad()  # set G_A and G_B's gradients to zero
         self.optimizer_F.zero_grad()
-        
         self.backward_G(epoch)             # calculate gradients for G_A and G_B
         self.optimizer_G.step()       # update G_A and G_B's weights
-        
-        self.optimizer_F.step()
 
         # D_A and D_B
         # self.set_requires_grad([self.netD_B], True)
@@ -324,7 +346,12 @@ class PixelizationModel(BaseModel):
             self.backward_D_A()      # calculate gradients for D_A
             self.optimizer_D_cls.step()
 
+        self.optimizer_F.step()
+        
+
         #@pw:为啥cut按照dgf的顺序更新？
+
+
     
     def calculate_NCE_loss(self,srs,tgt):
         n_layers = len(self.nce_layers)
