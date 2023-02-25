@@ -29,8 +29,10 @@ class C2PGen(nn.Module):
             for p in self.MLP.parameters():
                 p.requires_grad=False
 
-
-    def forward(self, clipart, pixelart, s=1):
+    def forward(self, clipart, pixelart, layers=[],encode_only=False,s=1):
+        #@pw: add layers and encode_only
+        if encode_only:
+            return self.RGBEnc(clipart,layers=layers,encode_only=True)
         feature = self.RGBEnc(clipart)
         code = self.PBEnc(pixelart)
         result, cellcode = self.fuse(feature, code, s)
@@ -132,12 +134,26 @@ class RGBEncoder(nn.Module):
             self.model += [ConvBlock(dim, 2 * dim, 4, 2, 1, norm=norm, activation=activ, pad_type=pad_type)]
             dim *= 2
         # residual blocks
-        self.model += [ResBlocks(n_res, dim, norm=norm, activation=activ, pad_type=pad_type)]
+        # self.model += [ResBlocks(n_res, dim, norm=norm, activation=activ, pad_type=pad_type)]
+        #@pw: for convenience in encode_only, split the block
+        for i in range(n_res):
+            self.model+=[ResBlock(dim,norm=norm,activation=activ,pad_type=pad_type)]
+        
         self.model = nn.Sequential(*self.model)
         self.output_dim = dim
 
-    def forward(self, x):
-        return self.model(x)
+    def forward(self, x,layers=[],encode_only=False): #@pw
+        if len(layers)>0:
+            feats=[]
+            for layer_id,layer in enumerate(self.model):
+                feat=layer(feat)
+                if layer_id in layers:
+                    feats.append(feat)
+                if layer_id==layers[-1] and encode_only:
+                    #stop in the last layer
+                    return feats
+        else:
+            return self.model(x)
 
 
 class RGBDecoder(nn.Module):
