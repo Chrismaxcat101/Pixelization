@@ -90,7 +90,9 @@ class PatchSampleF(nn.Module):
                 #patch_id = torch.randperm(feat_reshape.shape[1], device=feats[0].device)
                 patch_id = np.random.permutation(feat_reshape.shape[1])
                 patch_id = patch_id[:int(min(num_patches, patch_id.shape[0]))]  # .to(patch_ids.device)
+            #  UserWarning: To copy construct from a tensor, it is recommended to use sourceTensor.clone().detach() or sourceTensor.clone().detach().requires_grad_(True), rather than torch.tensor(sourceTensor).
             patch_id = torch.tensor(patch_id, dtype=torch.long, device=feat.device)
+
             x_sample = feat_reshape[:, patch_id, :].flatten(0, 1)  # reshape(-1, x.shape[1])
         else:
             x_sample = feat_reshape

@@ -203,17 +203,24 @@ class BaseModel(ABC):
 
         Parameters:
             verbose (bool) -- if verbose: print the network architecture
+
+            @pw: Add trainable parameters.
         """
         print('---------- Networks initialized -------------')
         for name in self.model_names:
             if isinstance(name, str):
                 net = getattr(self, 'net' + name)
                 num_params = 0
+                train_num_params=0
                 for param in net.parameters():
                     num_params += param.numel()
+                    if param.requires_grad:
+                        train_num_params+=param.numel()
                 if verbose:
                     print(net)
                 print('[Network %s] Total number of parameters : %.3f M' % (name, num_params / 1e6))
+                print('[Network %s] Total number of trainable parameters : %.3f M' % (name, train_num_params / 1e6))
+
         print('-----------------------------------------------')
 
     def set_requires_grad(self, nets, requires_grad=False):
