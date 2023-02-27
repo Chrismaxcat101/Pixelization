@@ -229,6 +229,7 @@ class NCEModel(BaseModel):
 
     def backward_D_A(self):
         """Calculate GAN loss for discriminator D_A"""
+        # self.fake_B_pool = ImagePool(opt.pool_size)  # create image buffer to store previously generated images
         fake_B = self.fake_B_pool.query(self.fake_B)
         self.loss_D_A, self.loss_D_CLS = self.backward_D_CLS(self.netD_A, self.real_B, fake_B)
 
@@ -327,10 +328,13 @@ class NCEModel(BaseModel):
         # G_A and G_B
         # self.set_requires_grad([self.netD_A, self.netD_B], False)  # Ds require no gradients when optimizing Gs
         self.set_requires_grad([self.netD_A], False)  # Ds require no gradients when optimizing Gs        
+        # self.set_requires_grad([self.netF], False)  # Ds require no gradients when optimizing Gs        
+        
         self.optimizer_G.zero_grad()  # set G_A and G_B's gradients to zero
         self.optimizer_F.zero_grad()
         self.backward_G(epoch)             # calculate gradients for G_A and G_B
         self.optimizer_G.step()       # update G_A and G_B's weights
+        self.optimizer_F.step()
 
         # D_A and D_B
         # self.set_requires_grad([self.netD_B], True)
@@ -338,19 +342,17 @@ class NCEModel(BaseModel):
         # self.backward_D_B()  # calculate graidents for D_B
         # self.optimizer_D.step()  # update D_A and D_B's weights
 
-        #print(i)
-        if i % 1 ==0: #why??????
+        #This condition is nonsence...
+        if i % 1 ==0: 
             #print('train!',i)
             self.set_requires_grad([self.netD_A], True)
             self.optimizer_D_cls.zero_grad()
             self.backward_D_A()      # calculate gradients for D_A
             self.optimizer_D_cls.step()
 
-        self.optimizer_F.step()
-        
-
-        #@pw:为啥cut按照dgf的顺序更新？
-
+        # self.set_requires_grad([self.netF],True)
+        # self.optimizer_F.zero_grad()
+        # self.optimizer_F.step()
 
     
     def calculate_NCE_loss(self,srs,tgt):

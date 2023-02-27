@@ -143,6 +143,7 @@ class RGBEncoder(nn.Module):
             for i in range(n_res):
                 self.model+=[ResBlock(dim,norm=norm,activation=activ,pad_type=pad_type)]
         else:
+            #can read weights from pretrained pth
             self.model += [ResBlocks(n_res, dim, norm=norm, activation=activ, pad_type=pad_type)]
         
         self.model = nn.Sequential(*self.model)
