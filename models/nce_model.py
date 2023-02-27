@@ -39,6 +39,10 @@ class NCEModel(BaseModel):
             # parser.add_argument('--lambda_A', type=float, default=10.0, help='weight for cycle loss (A -> B -> A)')
             # parser.add_argument('--lambda_B', type=float, default=10.0, help='weight for cycle loss (B -> A -> B)')
             parser.add_argument('--lambda_identity', type=float, default=10.0, help='use identity mapping. Setting lambda_identity other than 0 has an effect of scaling the weight of the identity mapping loss. For example, if the weight of the identity loss should be 10 times smaller than the weight of the reconstruction loss, please set lambda_identity = 0.1')
+            parser.add_argument('--nce_includes_all_negatives_from_minibatch',
+                            type=util.str2bool, nargs='?', const=True, default=False,
+                            help='(used for single image translation) If True, include the negatives from the other samples of the minibatch when computing the contrastive loss. Please see models/patchnce.py for more details.')
+      
         return parser
 
     def __init__(self, opt):
@@ -310,7 +314,7 @@ class NCEModel(BaseModel):
             self.backward_D_A()
             # calculate graidents for G
             self.backward_G(self.opt.epoch_count)
-            if self.opt.lambda_NCE > 0.0:
+            if self.opt.lambda_NCE_X > 0.0:
                 self.optimizer_F = torch.optim.Adam(self.netF.parameters(), lr=self.opt.lr, betas=(self.opt.beta1, 0.999))
                 self.optimizers.append(self.optimizer_F)
 
@@ -355,7 +359,7 @@ class NCEModel(BaseModel):
         # self.optimizer_F.step()
 
     
-    def calculate_NCE_loss(self,srs,tgt):
+    def calculate_NCE_loss(self,src,tgt):
         n_layers = len(self.nce_layers)
         feat_q = self.netG_A(tgt, self.B_gray,self.nce_layers, encode_only=True)
         feat_k = self.netG_A(src, self.B_gray,self.nce_layers, encode_only=True)
@@ -367,3 +371,9 @@ class NCEModel(BaseModel):
             loss = criterion(f_q, f_k)
             total_nce_loss += loss.mean()
         return total_nce_loss / n_layers
+
+    def parallelize(self):
+        for name in self.model_names:
+            if isinstance(name, str):
+                net = getattr(self, 'net' + name)
+                setattr(self, 'net' + name, torch.nn.DataParallel(net, self.opt.gpu_ids))
