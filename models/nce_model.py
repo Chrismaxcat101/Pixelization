@@ -35,7 +35,6 @@ class NCEModel(BaseModel):
             parser.add_argument('--netF', type=str, default='mlp_sample', choices=['sample', 'reshape', 'mlp_sample'], help='how to downsample the feature map')
             parser.add_argument('--netF_nc', type=int, default=256)
             parser.add_argument('--nce_T', type=float, default=0.07, help='temperature for NCE loss')
-            parser.add_argument('--num_patches', type=int, default=256, help='number of patches per layer')
             # parser.add_argument('--lambda_A', type=float, default=10.0, help='weight for cycle loss (A -> B -> A)')
             # parser.add_argument('--lambda_B', type=float, default=10.0, help='weight for cycle loss (B -> A -> B)')
             parser.add_argument('--lambda_identity', type=float, default=10.0, help='use identity mapping. Setting lambda_identity other than 0 has an effect of scaling the weight of the identity mapping loss. For example, if the weight of the identity loss should be 10 times smaller than the weight of the reconstruction loss, please set lambda_identity = 0.1')
@@ -85,7 +84,8 @@ class NCEModel(BaseModel):
                                         # not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
         # self.alias_net = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, "antialias", opt.norm,
                                         #    not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
-        self.netF=networks.define_F(opt.input_nc, opt.netF, opt.norm, not opt.no_dropout, opt.init_type, opt.init_gain, opt.no_antialias, self.gpu_ids, opt)
+        #@pw:add opt.neighbor
+        self.netF=networks.define_F(opt.input_nc, opt.netF, opt.norm, not opt.no_dropout, opt.init_type, opt.init_gain, opt.no_antialias, self.gpu_ids,opt.neighbor, opt)
 
 
 

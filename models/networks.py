@@ -11,15 +11,15 @@ from .c2pDis import *
 import torchvision
 
 #@pw
-def define_F(input_nc, netF, norm='batch', use_dropout=False, init_type='normal', init_gain=0.02, no_antialias=False, gpu_ids=[], opt=None):
+def define_F(input_nc, netF, norm='batch', use_dropout=False, init_type='normal', init_gain=0.02, no_antialias=False, gpu_ids=[], neighbor=False,opt=None):
     if netF == 'global_pool':
         net = PoolingF()
     elif netF == 'reshape':
         net = ReshapeF()
     elif netF == 'sample':
-        net = PatchSampleF(use_mlp=False, init_type=init_type, init_gain=init_gain, gpu_ids=gpu_ids, nc=opt.netF_nc)
+        net = PatchSampleF(use_mlp=False, init_type=init_type, init_gain=init_gain, gpu_ids=gpu_ids, nc=opt.netF_nc,neighbor=neighbor)
     elif netF == 'mlp_sample':
-        net = PatchSampleF(use_mlp=True, init_type=init_type, init_gain=init_gain, gpu_ids=gpu_ids, nc=opt.netF_nc)
+        net = PatchSampleF(use_mlp=True, init_type=init_type, init_gain=init_gain, gpu_ids=gpu_ids, nc=opt.netF_nc,neighbor=neighbor)
     elif netF == 'strided_conv':
         net = StridedConvF(init_type=init_type, init_gain=init_gain, gpu_ids=gpu_ids)
     else:
@@ -27,7 +27,7 @@ def define_F(input_nc, netF, norm='batch', use_dropout=False, init_type='normal'
     return init_net(net, init_type, init_gain, gpu_ids)
 
 class PatchSampleF(nn.Module):
-    def __init__(self, use_mlp=False, init_type='normal', init_gain=0.02, nc=256, gpu_ids=[]):
+    def __init__(self, use_mlp=False, init_type='normal', init_gain=0.02, nc=256, gpu_ids=[],neighbor=False):
         # potential issues: currently, we use the same patch_ids for multiple images in the batch
         super(PatchSampleF, self).__init__()
         self.l2norm = Normalize(2)
@@ -37,6 +37,7 @@ class PatchSampleF(nn.Module):
         self.init_type = init_type
         self.init_gain = init_gain
         self.gpu_ids = gpu_ids
+        self.neighbor=neighbor
         #ValueError: optimizer got an empty parameter list
         #I didn't define the network in __init__()
         #Because the weights of netF are initialized at the first feedforward pass with some input images.
@@ -100,7 +101,7 @@ class PatchSampleF(nn.Module):
             
         return x_sample,patch_id
 
-    def forward(self, feats, num_patches=64, patch_ids=None,neighbor=False): #@pw
+    def forward(self, feats, num_patches=64, patch_ids=None): #@pw
         """
         neighbor: use NeighborSample instead of Sample
         when neighbor==True, num_patches represents num_s.
@@ -113,7 +114,7 @@ class PatchSampleF(nn.Module):
             B, H, W = feat.shape[0], feat.shape[2], feat.shape[3]
             patch_id=None if patch_ids is None else patch_ids[feat_id]
             
-            if neighbor:
+            if self.neighbor:
                 x_sample,patch_id=self.NeighborSample(feat,num_patches,patch_id)
             else:
                 x_sample,patch_id=self.Sample(feat,num_patches,patch_id)

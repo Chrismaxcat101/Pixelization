@@ -6,6 +6,7 @@ import time
 from . import util, html
 from subprocess import Popen, PIPE
 from PIL import Image
+import wandb
 
 if sys.version_info[0] == 2:
     VisdomExceptionBase = Exception
@@ -257,3 +258,12 @@ class Visualizer():
         print(message)  # print the message
         with open(self.log_name, "a") as log_file:
             log_file.write('%s\n' % message)  # save the message
+
+    def record_current_log(df_train_log,epoch,iter,losses):
+        """@pw"""
+        log_train = {'epoch':epoch,'iter':iter}
+        for k,v in losses.items():
+            log_train[k]=v
+        wandb.log(log_train)
+        df_train_log=df_train_log.append(log_train,ignore_index=True)
+        return df_train_log

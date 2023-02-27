@@ -4,6 +4,7 @@ from data import create_dataset
 from models import create_model
 from util.visualizer import Visualizer
 import torch
+import pandas as pd
 
 
 if __name__ == '__main__':
@@ -15,6 +16,7 @@ if __name__ == '__main__':
     # model.setup(opt)               # regular setup: load and print networks; create schedulers
     visualizer = Visualizer(opt)   # create a visualizer that display/save images and plots
     total_iters = 0                # the total number of training iterations
+
 
     for epoch in range(opt.epoch_count, opt.n_epochs + opt.n_epochs_decay + 1):    # outer loop for different epochs; we save the model by <epoch_count>, <epoch_count>+<save_latest_freq>
         epoch_start_time = time.time()  # timer for entire epoch
@@ -39,9 +41,13 @@ if __name__ == '__main__':
                 model.setup(opt)               # regular setup: load and print networks; create schedulers
                 model.parallelize()
 
+                #@pw:wandb
+                if opt.wandb:
+                    df_train_log = pd.DataFrame()
+
             model.set_input(data)         # unpack data from dataset and apply preprocessing
             model.optimize_parameters(i,epoch)   # calculate loss functions, get gradients, update network weights
-
+            
             if total_iters % opt.display_freq == 0:   # display images on visdom and save images to a HTML file
                 save_result = total_iters % opt.update_html_freq == 0
                 model.compute_visuals()
@@ -53,6 +59,12 @@ if __name__ == '__main__':
                 visualizer.print_current_losses(epoch, epoch_iter, losses, t_comp, t_data)
                 if opt.display_id > 0:
                     visualizer.plot_current_losses(epoch, float(epoch_iter) / dataset_size, losses)
+                
+                #@pw:wandb
+                #check util/visualizer.py
+                if opt.wandb:
+                    df_train_log=record_current_log(df_train_log,epoch,epoch_iter,losses)
+                
 
             if total_iters % opt.save_latest_freq == 0:   # cache our latest model every <save_latest_freq> iterations
                 print('saving the latest model (epoch %d, total_iters %d)' % (epoch, total_iters))
@@ -60,10 +72,20 @@ if __name__ == '__main__':
                 model.save_networks(save_suffix)
 
             iter_data_time = time.time()
+
+
+
         if epoch % opt.save_epoch_freq == 0:              # cache our model every <save_epoch_freq> epochs
             print('saving the model at the end of epoch %d, iters %d' % (epoch, total_iters))
             model.save_networks('latest')
             model.save_networks(epoch)
+        
 
         print('End of epoch %d / %d \t Time Taken: %d sec' % (epoch, opt.n_epochs + opt.n_epochs_decay, time.time() - epoch_start_time))
         model.update_learning_rate()    #@pw:move to the last of every epoch.
+
+
+    #@pw:wandb
+    if opt.wandb:
+        df_train_log.to_csv('train_log.csv',index=False)
+    # df_test_log.to_csv('train_log.csv',index=False)
