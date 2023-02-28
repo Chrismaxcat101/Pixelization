@@ -1,21 +1,22 @@
 from .basic_layer import *
 import torchvision.models as models
+import torch
 
 
 class C2PGen(nn.Module):
-    def __init__(self, input_dim, output_dim, dim, n_downsample, n_res, style_dim, mlp_dim, activ='relu', pad_type='reflect',pretrained=False,is_train=False):
+    def __init__(self, input_dim, output_dim, dim, n_downsample, n_res, style_dim, mlp_dim, activ='relu', pad_type='reflect',isTrain=False,pretrained_csenc=False):
         super(C2PGen, self).__init__()
-        self.PBEnc = PixelBlockEncoder(input_dim, dim, style_dim, norm='none', activ=activ, pad_type=pad_type)
-        self.RGBEnc = RGBEncoder(input_dim, dim, n_downsample, n_res, "in", activ, pad_type=pad_type,is_train=is_train)
+        self.PBEnc = PixelBlockEncoder(input_dim, dim, style_dim, norm='none', activ=activ, pad_type=pad_type,isTrain=isTrain)
+        self.RGBEnc = RGBEncoder(input_dim, dim, n_downsample, n_res, "in", activ, pad_type=pad_type,isTrain=isTrain)
         self.RGBDec = RGBDecoder(self.RGBEnc.output_dim, output_dim, n_downsample, n_res, res_norm='adain',
                                       activ=activ, pad_type=pad_type)
         self.MLP = MLP(style_dim, 2048, mlp_dim, 3, norm='none', activ=activ)
-        #@pw: add pretraind and is_train
+        #@pw: add pretrained_csenc and isTrain
         #use pretrained PBEnc and MLP
         #assume it works...
-        self.is_train=is_train
-        self.pretrained=pretrained
-        if self.pretrained:
+        self.isTrain=isTrain
+        self.pretrained_csenc=pretrained_csenc
+        if self.pretrained_csenc:
             print('--------Load CSEnc--------')
             load_path='./160_net_G_A.pth'
             state_dict=torch.load(load_path)
@@ -70,12 +71,15 @@ class C2PGen(nn.Module):
 
 
 class PixelBlockEncoder(nn.Module):
-    def __init__(self, input_dim, dim, style_dim, norm, activ, pad_type):
+    def __init__(self, input_dim, dim, style_dim, norm, activ, pad_type,isTrain=isTrain):
         super(PixelBlockEncoder, self).__init__()
+        #while testing it's not needed.
+        print('--------Load VGG19--------')
         vgg19 = models.vgg.vgg19(pretrained=False)
-        #?
+        #modify the last fc layer's strcuture to be the same with pretrained vgg19
         vgg19.classifier._modules['6'] = nn.Linear(4096, 7, bias=True)
         vgg19.load_state_dict(torch.load('./pixelart_vgg19.pth'))
+        #we won't use fc layers
         self.vgg = vgg19.features
         for p in self.vgg.parameters():
             p.requires_grad = False
@@ -128,8 +132,8 @@ class PixelBlockEncoder(nn.Module):
         return code
 
 class RGBEncoder(nn.Module):
-    def __init__(self, input_dim, dim, n_downsample, n_res, norm, activ, pad_type,is_train=False):
-        #@pw:add is_train
+    def __init__(self, input_dim, dim, n_downsample, n_res, norm, activ, pad_type,isTrain=False):
+        #@pw:add isTrain
         super(RGBEncoder, self).__init__()
         self.model = []
         self.model += [ConvBlock(input_dim, dim, 7, 1, 3, norm=norm, activation=activ, pad_type=pad_type)]
@@ -138,7 +142,7 @@ class RGBEncoder(nn.Module):
             self.model += [ConvBlock(dim, 2 * dim, 4, 2, 1, norm=norm, activation=activ, pad_type=pad_type)]
             dim *= 2
         # residual blocks
-        if is_train:
+        if isTrain:
             #@pw: for convenience in encode_only, split the block
             for i in range(n_res):
                 self.model+=[ResBlock(dim,norm=norm,activation=activ,pad_type=pad_type)]

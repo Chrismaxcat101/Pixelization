@@ -53,10 +53,13 @@ class NCEModel(BaseModel):
         """
         BaseModel.__init__(self, opt)
         self.opt=opt
-        # specify the training losses you want to print out. The training/test scripts will call <BaseModel.get_current_losses>
-        # self.loss_names = ['D_A', 'G_A', 'cycle_A', 'idt_A', 'D_B', 'G_B', 'cycle_B', 'idt_B', 'G_CLS', 'D_CLS', 'color_A']
-        self.loss_names = ['D_A', 'G_A', 'NCE_X', 'NCE_Y', 'G_CLS', 'D_CLS', 'color_A']
-        self.nce_layers = [int(i) for i in self.opt.nce_layers.split(',')]
+        
+        if opt.isTrain:
+            # specify the training losses you want to print out. The training/test scripts will call <BaseModel.get_current_losses>
+            # self.loss_names = ['D_A', 'G_A', 'cycle_A', 'idt_A', 'D_B', 'G_B', 'cycle_B', 'idt_B', 'G_CLS', 'D_CLS', 'color_A']
+            self.loss_names = ['D_A', 'G_A', 'NCE_X', 'NCE_Y', 'G_CLS', 'D_CLS', 'color_A']
+            self.nce_layers = [int(i) for i in self.opt.nce_layers.split(',')]
+
         # specify the images you want to save/display. The training/test scripts will call <BaseModel.get_current_visuals>
         # visual_names_A = ['real_A', 'temp_B', 'fake_B', 'rec_A']
         # visual_names_B = ['real_B', 'fake_A', 'rec_temp_B', 'rec_B']
@@ -64,7 +67,6 @@ class NCEModel(BaseModel):
         # if self.isTrain and self.opt.lambda_identity > 0.0:  # if identity loss is used, we also visualize idt_B=G_A(B) ad idt_A=G_A(B)
             # visual_names_A.append('idt_B')
             # visual_names_B.append('idt_A')
-
 
         # self.visual_names = visual_names_A + visual_names_B  # combine visualizations for A and B
         self.visual_names = visual_names_A
@@ -79,17 +81,16 @@ class NCEModel(BaseModel):
 
         # define networks (both Generators and discriminators)
         self.netG_A = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, opt.netG_A, opt.norm,
-                                        not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids,pretrained=opt.pretrained,is_train=opt.isTrain)
+                                        not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids,isTrain=opt.isTrain,pretrained_csenc=opt.pretrained_csenc)
         # self.netG_B = networks.define_G(opt.output_nc, opt.input_nc, opt.ngf, opt.netG_B, opt.norm,
                                         # not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
         # self.alias_net = networks.define_G(opt.input_nc, opt.output_nc, opt.ngf, "antialias", opt.norm,
                                         #    not opt.no_dropout, opt.init_type, opt.init_gain, self.gpu_ids)
-        #@pw:add opt.neighbor
-        self.netF=networks.define_F(opt.input_nc, opt.netF, opt.norm, not opt.no_dropout, opt.init_type, opt.init_gain, opt.no_antialias, self.gpu_ids,opt.neighbor, opt)
-
-
-
-        if opt.isTrain:  # define discriminators
+       
+        if opt.isTrain:
+            #@pw:add opt.neighbor
+            self.netF=networks.define_F(opt.input_nc, opt.netF, opt.norm, not opt.no_dropout, opt.init_type, opt.init_gain, opt.no_antialias, self.gpu_ids,opt.neighbor, opt)
+            # define discriminators
             self.netD_A = networks.define_D(opt.output_nc, opt.ndf, 'CPDis_cls',
                                             opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids)
             # self.netD_B = networks.define_D(opt.input_nc, opt.ndf, opt.netD,

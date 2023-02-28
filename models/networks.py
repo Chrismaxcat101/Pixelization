@@ -247,7 +247,7 @@ def init_net(net, init_type='normal', init_gain=0.02, gpu_ids=[]):
     return net
 
 
-def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, init_type='normal', init_gain=0.02, gpu_ids=[],pretrained=False,is_train=False):
+def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, init_type='normal', init_gain=0.02, gpu_ids=[],isTrain=False,pretrained_csenc=False):
     """Create a generator
 
     Parameters:
@@ -268,7 +268,7 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
     norm_layer = get_norm_layer(norm_type=norm)
 
     if netG == 'c2pGen':  #                     style_dim  mlp_dim
-        net = C2PGen(input_nc, output_nc, ngf, 2, 4, 256, 256, activ='relu', pad_type='reflect',pretrained=pretrained,is_train=is_train)
+        net = C2PGen(input_nc, output_nc, ngf, 2, 4, 256, 256, activ='relu', pad_type='reflect',isTrain=isTrain,pretrained_csenc=pretrained_csenc)
         print('c2pgen resblock is 8')
     elif netG == 'p2cGen':
         net = P2CGen(input_nc, output_nc, ngf, 2, 3, activ='relu', pad_type='reflect')

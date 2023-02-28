@@ -37,7 +37,6 @@ class TrainOptions(BaseOptions):
         parser.add_argument('--lr_decay_iters', type=int, default=50, help='multiply by a gamma every lr_decay_iters iterations')
 
         #@pw
-        parser.add_argument('--pretrained',action='store_true',help='use the pretrained PBEnc and MLP.')
         parser.add_argument('--neighbor',action='store_true',help='use CCP loss instead of NCE loss')
         parser.add_argument('--num_patches', type=int, default=256, help='number of patches per layer. Should be modified to 8 while using CCPL. Then it represents the number of sampled anchor vectors')
         parser.add_argument('--wandb',action='store_true',help='use wandb')
