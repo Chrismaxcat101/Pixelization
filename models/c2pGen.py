@@ -20,7 +20,10 @@ class C2PGen(nn.Module):
             print('--------Load CSEnc--------')
             load_path='./160_net_G_A.pth'
             state_dict=torch.load(load_path)
-            
+            for p in list(state_dict.keys()):
+                #change p to module.p
+                state_dict["module."+str(p)] = state_dict.pop(p)
+
             pbenc_dict=self.PBEnc.state_dict()
             pbenc_dict.update({k:v for k,v in state_dict.items() if k in pbenc_dict.keys()})
             self.PBEnc.load_state_dict(pbenc_dict)
