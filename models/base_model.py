@@ -84,6 +84,9 @@ class BaseModel(ABC):
         if self.isTrain:
             self.schedulers = [networks.get_scheduler(optimizer, opt) for optimizer in self.optimizers]
         if not self.isTrain or opt.continue_train:
+            #if --load_iter 100, it's iter_100
+            #elif --epoch 250, it's 150
+            #elif it's latest
             load_suffix = 'iter_%d' % opt.load_iter if opt.load_iter > 0 else opt.epoch
             self.load_networks(load_suffix)
         self.print_networks(opt.verbose)
@@ -178,14 +181,20 @@ class BaseModel(ABC):
 
         Parameters:
             epoch (int) -- current epoch; used in the file name '%s_net_%s.pth' % (epoch, name)
+
+        in setup(), epoch is: 
+        load_suffix = 'iter_%d' % opt.load_iter if opt.load_iter > 0 else opt.epoch
         """
         for name in self.model_names:
             if isinstance(name, str):
                 load_filename = '%s_net_%s.pth' % (epoch, name)
                 load_path = os.path.join(self.save_dir, load_filename)
-                net = getattr(self, 'net' + name)
-                if isinstance(net, torch.nn.DataParallel):
-                    net = net.module
+                net = getattr(self, 'net' + name) #net=self.netG_A
+
+                #@pw while reading from checkpoints I comment it
+                # if isinstance(net, torch.nn.DataParallel): #net=self.netG_A.module
+                #     net = net.module
+                                
                 print('loading the model from %s' % load_path)
                 # if you are using PyTorch newer than 0.4 (e.g., built from
                 # GitHub source), you can remove str() on self.device
@@ -193,6 +202,7 @@ class BaseModel(ABC):
                 if hasattr(state_dict, '_metadata'):
                     del state_dict._metadata
 
+                #@pw: it's commented in CUT.
                 # patch InstanceNorm checkpoints prior to 0.4
                 for key in list(state_dict.keys()):  # need to copy keys here because we mutate in loop
                     self.__patch_instance_norm_state_dict(state_dict, net, key.split('.'))

@@ -58,7 +58,7 @@ class PatchSampleF(nn.Module):
         """
         sample neighbors for single layer's feature.
         """
-        b, c, h, w = feat.size()
+        b, c, h, w = feat.size() #e.g. [2,64,256,256]
         feat_r = feat.permute(0, 2, 3, 1).flatten(1, 2)
         if sample_ids is None:
             sample_ids=[]
@@ -268,8 +268,13 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
     norm_layer = get_norm_layer(norm_type=norm)
 
     if netG == 'c2pGen':  #                     style_dim  mlp_dim
-        net = C2PGen(input_nc, output_nc, ngf, 2, 4, 256, 256, activ='relu', pad_type='reflect',isTrain=isTrain,pretrained_csenc=pretrained_csenc)
+        net = C2PGen(input_nc, output_nc, ngf, 2, 4, 256, 256, activ='relu', pad_type='reflect')
         print('c2pgen resblock is 8')
+    # @pw:add
+    elif netG=='nceGen':
+        net = nceGen(input_nc, output_nc, ngf, 2, 4, 256, 256, activ='relu', pad_type='reflect',isTrain=isTrain,pretrained_csenc=pretrained_csenc)
+        print('ncegen resblock is 8')
+
     elif netG == 'p2cGen':
         net = P2CGen(input_nc, output_nc, ngf, 2, 3, activ='relu', pad_type='reflect')
     elif netG == 'antialias':

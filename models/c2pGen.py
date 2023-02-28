@@ -1,45 +1,17 @@
 from .basic_layer import *
 import torchvision.models as models
-import torch
 
 
 class C2PGen(nn.Module):
-    def __init__(self, input_dim, output_dim, dim, n_downsample, n_res, style_dim, mlp_dim, activ='relu', pad_type='reflect',isTrain=False,pretrained_csenc=False):
+    def __init__(self, input_dim, output_dim, dim, n_downsample, n_res, style_dim, mlp_dim, activ='relu', pad_type='reflect'):
         super(C2PGen, self).__init__()
-        self.PBEnc = PixelBlockEncoder(input_dim, dim, style_dim, norm='none', activ=activ, pad_type=pad_type,isTrain=isTrain)
-        self.RGBEnc = RGBEncoder(input_dim, dim, n_downsample, n_res, "in", activ, pad_type=pad_type,isTrain=isTrain)
+        self.PBEnc = PixelBlockEncoder(input_dim, dim, style_dim, norm='none', activ=activ, pad_type=pad_type)
+        self.RGBEnc = RGBEncoder(input_dim, dim, n_downsample, n_res, "in", activ, pad_type=pad_type)
         self.RGBDec = RGBDecoder(self.RGBEnc.output_dim, output_dim, n_downsample, n_res, res_norm='adain',
                                       activ=activ, pad_type=pad_type)
         self.MLP = MLP(style_dim, 2048, mlp_dim, 3, norm='none', activ=activ)
-        #@pw: add pretrained_csenc and isTrain
-        #use pretrained PBEnc and MLP
-        #assume it works...
-        self.isTrain=isTrain
-        self.pretrained_csenc=pretrained_csenc
-        if self.pretrained_csenc:
-            print('--------Load CSEnc--------')
-            load_path='./160_net_G_A.pth'
-            state_dict=torch.load(load_path)
-            for p in list(state_dict.keys()):
-                #change p to module.p
-                state_dict["module."+str(p)] = state_dict.pop(p)
 
-            pbenc_dict=self.PBEnc.state_dict()
-            pbenc_dict.update({k:v for k,v in state_dict.items() if k in pbenc_dict.keys()})
-            self.PBEnc.load_state_dict(pbenc_dict)
-            for p in self.PBEnc.parameters():
-                p.requires_grad=False
-
-            mlp_dict=self.MLP.state_dict()
-            mlp_dict.update({k:v for k,v in state_dict.items() if k in mlp_dict.keys()})
-            self.MLP.load_state_dict(mlp_dict)
-            for p in self.MLP.parameters():
-                p.requires_grad=False
-
-    def forward(self, clipart, pixelart, layers=[],encode_only=False,s=1):
-        #@pw: add layers and encode_only
-        if encode_only:
-            return self.RGBEnc(clipart,layers=layers,encode_only=True)
+    def forward(self, clipart, pixelart, s=1):
         feature = self.RGBEnc(clipart)
         code = self.PBEnc(pixelart)
         result, cellcode = self.fuse(feature, code, s)
@@ -74,18 +46,20 @@ class C2PGen(nn.Module):
 
 
 class PixelBlockEncoder(nn.Module):
-    def __init__(self, input_dim, dim, style_dim, norm, activ, pad_type,isTrain=isTrain):
+    def __init__(self, input_dim, dim, style_dim, norm, activ, pad_type):
         super(PixelBlockEncoder, self).__init__()
-        #while testing it's not needed.
-        print('--------Load VGG19--------')
         vgg19 = models.vgg.vgg19(pretrained=False)
-        #modify the last fc layer's strcuture to be the same with pretrained vgg19
         vgg19.classifier._modules['6'] = nn.Linear(4096, 7, bias=True)
         vgg19.load_state_dict(torch.load('./pixelart_vgg19.pth'))
-        #we won't use fc layers
         self.vgg = vgg19.features
         for p in self.vgg.parameters():
             p.requires_grad = False
+        # vgg19 = models.vgg.vgg19(pretrained=False)
+        # vgg19.load_state_dict(torch.load('./vgg.pth'))
+        # self.vgg = vgg19.features
+        # for p in self.vgg.parameters():
+        #     p.requires_grad = False
+
 
         self.conv1 = ConvBlock(input_dim, dim, 7, 1, 3, norm=norm, activation=activ, pad_type=pad_type)  # 3->64,concat
         dim = dim * 2
@@ -135,8 +109,7 @@ class PixelBlockEncoder(nn.Module):
         return code
 
 class RGBEncoder(nn.Module):
-    def __init__(self, input_dim, dim, n_downsample, n_res, norm, activ, pad_type,isTrain=False):
-        #@pw:add isTrain
+    def __init__(self, input_dim, dim, n_downsample, n_res, norm, activ, pad_type):
         super(RGBEncoder, self).__init__()
         self.model = []
         self.model += [ConvBlock(input_dim, dim, 7, 1, 3, norm=norm, activation=activ, pad_type=pad_type)]
@@ -145,30 +118,12 @@ class RGBEncoder(nn.Module):
             self.model += [ConvBlock(dim, 2 * dim, 4, 2, 1, norm=norm, activation=activ, pad_type=pad_type)]
             dim *= 2
         # residual blocks
-        if isTrain:
-            #@pw: for convenience in encode_only, split the block
-            for i in range(n_res):
-                self.model+=[ResBlock(dim,norm=norm,activation=activ,pad_type=pad_type)]
-        else:
-            #can read weights from pretrained pth
-            self.model += [ResBlocks(n_res, dim, norm=norm, activation=activ, pad_type=pad_type)]
-        
+        self.model += [ResBlocks(n_res, dim, norm=norm, activation=activ, pad_type=pad_type)]
         self.model = nn.Sequential(*self.model)
         self.output_dim = dim
 
-    def forward(self, x,layers=[],encode_only=False): 
-        #@pw: layers from 0 to 6
-        if len(layers)>0:
-            feats=[]
-            for layer_id,layer in enumerate(self.model):
-                x=layer(x)
-                if layer_id in layers:
-                    feats.append(x)
-                if layer_id==layers[-1] and encode_only:
-                    #stop in the last layer
-                    return feats
-        else:
-            return self.model(x)
+    def forward(self, x):
+        return self.model(x)
 
 
 class RGBDecoder(nn.Module):
@@ -236,7 +191,6 @@ class RGBDecoder(nn.Module):
         x = self.conv_3(x)
         # print(x_big.shape)
         return x
-
 
 class AliasNet(nn.Module):
     def __init__(self, input_dim, output_dim, dim, n_downsample, n_res, activ='relu', pad_type='reflect'):

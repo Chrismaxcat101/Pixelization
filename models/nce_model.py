@@ -25,6 +25,7 @@ class NCEModel(BaseModel):
         Identity loss (optional): lambda_idt * (||G_A(B) - B|| * lambda_B + ||G_B(A) - A|| * lambda_A)
         """
         parser.set_defaults(no_dropout=True)  # default CycleGAN did not use dropout
+        self.netG_A='nceGen'
         if is_train:
             parser.add_argument('--lambda_GAN', type=float, default=1.0, help='weight for GAN loss：GAN(G(X))')
             parser.add_argument('--lambda_LMC', type=float, default=1.0, help='')
