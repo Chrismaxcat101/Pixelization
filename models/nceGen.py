@@ -5,7 +5,7 @@ import torch
 
 class NCEGen(nn.Module):
     def __init__(self, input_dim, output_dim, dim, n_downsample, n_res, style_dim, mlp_dim, activ='relu', pad_type='reflect',isTrain=False,pretrained_csenc=False):
-        super(C2PGen, self).__init__()
+        super(NCEGen, self).__init__()
         self.PBEnc = PixelBlockEncoder(input_dim, dim, style_dim, norm='none', activ=activ, pad_type=pad_type,isTrain=isTrain)
         self.RGBEnc = RGBEncoder(input_dim, dim, n_downsample, n_res, "in", activ, pad_type=pad_type)
         self.RGBDec = RGBDecoder(self.RGBEnc.output_dim, output_dim, n_downsample, n_res, res_norm='adain',

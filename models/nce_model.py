@@ -25,7 +25,6 @@ class NCEModel(BaseModel):
         Identity loss (optional): lambda_idt * (||G_A(B) - B|| * lambda_B + ||G_B(A) - A|| * lambda_A)
         """
         parser.set_defaults(no_dropout=True)  # default CycleGAN did not use dropout
-        self.netG_A='nceGen'
         if is_train:
             parser.add_argument('--lambda_GAN', type=float, default=1.0, help='weight for GAN loss：GAN(G(X))')
             parser.add_argument('--lambda_LMC', type=float, default=1.0, help='')
@@ -54,6 +53,8 @@ class NCEModel(BaseModel):
         """
         BaseModel.__init__(self, opt)
         self.opt=opt
+        opt.netG_A='nceGen'
+
         
         if opt.isTrain:
             # specify the training losses you want to print out. The training/test scripts will call <BaseModel.get_current_losses>
@@ -371,7 +372,7 @@ class NCEModel(BaseModel):
 
         total_nce_loss = 0.0
         for f_q, f_k, criterion, nce_layer in zip(feat_q_pool, feat_k_pool, self.criterionNCE, self.nce_layers):
-            loss = criterion(f_q, f_k)
+            loss = criterion(f_q, f_k) #patchnce.py
             total_nce_loss += loss.mean()
         return total_nce_loss / n_layers
 

@@ -8,6 +8,7 @@ from torch.optim import lr_scheduler
 from .c2pGen import *
 from .p2cGen import *
 from .c2pDis import *
+from .nceGen import *
 import torchvision
 
 #@pw
@@ -272,7 +273,7 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
         print('c2pgen resblock is 8')
     # @pw:add
     elif netG=='nceGen':
-        net = nceGen(input_nc, output_nc, ngf, 2, 4, 256, 256, activ='relu', pad_type='reflect',isTrain=isTrain,pretrained_csenc=pretrained_csenc)
+        net = NCEGen(input_nc, output_nc, ngf, 2, 4, 256, 256, activ='relu', pad_type='reflect',isTrain=isTrain,pretrained_csenc=pretrained_csenc)
         print('ncegen resblock is 8')
 
     elif netG == 'p2cGen':
